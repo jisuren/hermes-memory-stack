@@ -1,0 +1,17 @@
+[Unit]
+Description=OpenViking Memory Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/openviking-server --host 127.0.0.1 --port 1933
+Restart=on-failure
+RestartSec=10
+MemoryMax=4G
+Environment=PYTHONUNBUFFERED=1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,17 @@
+{
+  "baseUrl": "http://localhost:8001",
+  "hosts": {
+    "hermes": {
+      "enabled": true,
+      "aiPeer": "<NOM_AGENT>",
+      "peerName": "<NOM_UTILISATEUR>",
+      "workspace": "hermes",
+      "sessionStrategy": "global"
+    }
+  },
+  "contextTokens": 2000,
+  "recallMode": "hybrid",
+  "writeFrequency": "turn",
+  "messageMaxChars": 25000,
+  "dialecticReasoningLevel": "low"
+}

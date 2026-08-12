@@ -20,7 +20,7 @@ PostgreSQL + pgvector               LevelDB + HNSW vectoriel
 
 **Prérequis :**
 - Docker + Compose, Python, ~2 Go RAM
-- 1 clé API LLM (OpenRouter, OpenAI, OpenCode Go...)
+- 1 clé API LLM (DeepSeek supporté nativement via transport OpenAI-compatible, OpenRouter, OpenAI, OpenCode Go...)
 
 **Install (résumé) :**
 ```bash

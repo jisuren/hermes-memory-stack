@@ -76,7 +76,7 @@ Chaque module ci-dessous **part de zéro** et ne suppose rien de l'autre.
 - **Docker + Docker Compose** (ou Docker Compose plugin)
 - **Python 3.10+** avec `pip`
 - **~2 Go RAM** pour la stack
-- **Une clé API LLM** (OpenRouter, OpenAI, OpenCode Go, etc.)
+- **Une clé API LLM** (DeepSeek, OpenRouter, OpenAI, OpenCode Go, etc.)
 - *(Optionnel)* **Une clé API OpenAI** pour les embeddings
 
 ## Installation
@@ -107,33 +107,49 @@ sed -i 's/"127.0.0.1:6379:6379"/"127.0.0.1:6380:6379"/' docker-compose.yml
 Fichier : `/opt/honcho/.env`
 
 ```ini
-# === LLM Provider (Deriver + Dialectic + Dreamer) ===
-# OpenAI-compatible : OpenRouter, OpenCode Go, etc.
-LLM_OPENAI_API_KEY=<VOTRE_CLE_API_LLM>
-LLM_BASE_URL=https://api.openai.com/v1
+# === LLM Provider : DeepSeek (transport OpenAI-compatible) ===
+# Honcho supporte DeepSeek via son transport "openai" : la clé DeepSeek se met
+# dans LLM_OPENAI_API_KEY et chaque module pointe vers l'API officielle avec
+# MODEL_CONFIG__OVERRIDES__BASE_URL.
+LLM_OPENAI_API_KEY=<VOTRE_CLE_API_DEEPSEEK>
 
 # === Embeddings (OpenAI uniquement pour l'instant) ===
 OPENAI_API_KEY=<VOTRE_CLE_API_OPENAI>
 
-# === Modèles ===
+# === Modèles : DeepSeek V4 — API officielle https://api.deepseek.com ===
 # Deriver — transforme les messages en observations
-DERIVER_MODEL_CONFIG__MODEL=deepseek-v4-flash
+DERIVER_MODEL_CONFIG__MODEL=deepseek-v4-pro
+DERIVER_MODEL_CONFIG__OVERRIDES__BASE_URL=https://api.deepseek.com/v1
 DERIVER_MODEL_CONFIG__STRUCTURED_OUTPUT_MODE=json_object
 DERIVER_FLUSH_ENABLED=true
 
-# Dialectic — synthèse mémoire interrogée par l'agent
-DIALECTIC_LEVELS__low__MODEL_CONFIG__MODEL=deepseek-v4-flash
+# Dialectic — synthèse mémoire interrogée par l'agent (1 bloc par niveau)
+DIALECTIC_LEVELS__low__MODEL_CONFIG__MODEL=deepseek-v4-pro
+DIALECTIC_LEVELS__low__MODEL_CONFIG__OVERRIDES__BASE_URL=https://api.deepseek.com/v1
+DIALECTIC_LEVELS__medium__MODEL_CONFIG__MODEL=deepseek-v4-pro
+DIALECTIC_LEVELS__medium__MODEL_CONFIG__OVERRIDES__BASE_URL=https://api.deepseek.com/v1
+DIALECTIC_LEVELS__high__MODEL_CONFIG__MODEL=deepseek-v4-pro
+DIALECTIC_LEVELS__high__MODEL_CONFIG__OVERRIDES__BASE_URL=https://api.deepseek.com/v1
+DIALECTIC_LEVELS__max__MODEL_CONFIG__MODEL=deepseek-v4-pro
+DIALECTIC_LEVELS__max__MODEL_CONFIG__OVERRIDES__BASE_URL=https://api.deepseek.com/v1
 
 # Dreamer — consolidation périodique en peer cards
-DREAM_DEDUCTION_MODEL_CONFIG__MODEL=deepseek-v4-flash
+DREAM_DEDUCTION_MODEL_CONFIG__MODEL=deepseek-v4-pro
+DREAM_DEDUCTION_MODEL_CONFIG__OVERRIDES__BASE_URL=https://api.deepseek.com/v1
 DREAM_DEDUCTION_MODEL_CONFIG__STRUCTURED_OUTPUT_MODE=json_object
 DREAM_DEDUCTION_MODEL_CONFIG__TRANSPORT=openai
+
+# Summary — résumés de session
+SUMMARY_MODEL_CONFIG__MODEL=deepseek-v4-pro
+SUMMARY_MODEL_CONFIG__OVERRIDES__BASE_URL=https://api.deepseek.com/v1
 
 # Cache
 CACHE_ENABLED=true
 ```
 
-> ⚠️ **DeepSeek V4 ne supporte pas `json_schema`.** La variable `STRUCTURED_OUTPUT_MODE=json_object` est OBLIGATOIRE pour que le deriver fonctionne. Sans ça, le deriver tourne mais génère 0 observations avec le warning : `Structured output via json_schema rejected by model`.
+> ✅ **DeepSeek est supporté nativement par Honcho** (transport OpenAI-compatible). Il suffit de mettre la clé DeepSeek dans `LLM_OPENAI_API_KEY` et de pointer `OVERRIDES__BASE_URL` vers `https://api.deepseek.com/v1` — mécanisme documenté dans le `.env.template` officiel pour tous les providers OpenAI-compatibles (OpenRouter, etc.).
+>
+> ⚠️ **DeepSeek ne supporte pas `json_schema`.** La variable `STRUCTURED_OUTPUT_MODE=json_object` est OBLIGATOIRE pour que le deriver fonctionne. Sans ça, le deriver tourne mais génère 0 observations avec le warning : `Structured output via json_schema rejected by model`.
 
 ### 4. Lancer la stack Docker
 
@@ -258,7 +274,8 @@ print(f'peerName: {cfg.peer_name}')
 |-------|----------|----------|
 | `docker compose restart` ne recharge PAS `.env` | Modifications ignorées après restart | Utiliser `docker compose down <svc> && docker compose up -d <svc>` |
 | `provider: ''` (vide) dans config.yaml | Stack OK mais 0 données dans Honcho | `sed -i "/^  provider: ''$/d" ~/.hermes/config.yaml` |
-| DeepSeek V4 + `json_schema` | Deriver tourne mais 0 observations | Ajouter `STRUCTURED_OUTPUT_MODE=json_object` |
+| DeepSeek + `json_schema` | Deriver tourne mais 0 observations | Ajouter `STRUCTURED_OUTPUT_MODE=json_object` |
+| DeepSeek via API officielle | Modèles pointent vers OpenAI/OpenRouter | Mettre la clé dans `LLM_OPENAI_API_KEY` + `OVERRIDES__BASE_URL=https://api.deepseek.com/v1` sur chaque module |
 | Dreamer utilise son propre modèle (`gpt-5.4-mini`) | Peer card null malgré deriver OK | Configurer `DREAM_DEDUCTION_MODEL_CONFIG__*` dans `.env` |
 | `memory_enabled: false` | Honcho reçoit les données mais Hermes ne les lit pas | `hermes config set memory.memory_enabled true` |
 
@@ -565,7 +582,8 @@ grep memory_enabled ~/.hermes/config.yaml
 # 1. Vérifier que le dreamer tourne sur le bon modèle
 docker exec honcho-deriver-1 env | grep DREAM_
 # → Si vide, ajouter dans .env :
-#    DREAM_DEDUCTION_MODEL_CONFIG__MODEL=deepseek-v4-flash
+#    DREAM_DEDUCTION_MODEL_CONFIG__MODEL=deepseek-v4-pro
+#    DREAM_DEDUCTION_MODEL_CONFIG__OVERRIDES__BASE_URL=https://api.deepseek.com/v1
 #    DREAM_DEDUCTION_MODEL_CONFIG__STRUCTURED_OUTPUT_MODE=json_object
 
 # 2. Injection manuelle si urgent
